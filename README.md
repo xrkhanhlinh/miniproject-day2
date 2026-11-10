@@ -1,207 +1,176 @@
-# 📖 Hướng Dẫn Học Viên (Student Guide) — Lab 02: AI Product Scoping
+# Trợ lý phân loại phản ánh cư dân
 
-Tài liệu này hướng dẫn chi tiết cách thiết lập môi trường lập trình Python, cấu hình API Key, quy trình phân nhánh Git làm việc nhóm và chuẩn bị sản phẩm nộp bài cho **Lab 02: AI Product Scoping (Vin Smart Future)**.
+**Lab 02 · AI Product Scoping · Bối cảnh Vinhomes · Gemini 2.5 Flash**
 
----
+![Tổng quan trợ lý phân loại phản ánh cư dân: đầu vào, đề xuất AI và nhân viên phê duyệt](assets/project-overview.png)
 
-## 🛠️ 1. Hướng dẫn thiết lập Môi trường ảo (`.venv`)
+Một bản mẫu hỗ trợ nhân viên chăm sóc cư dân đọc, tóm tắt và phân loại phản ánh về điện, nước, vệ sinh và an ninh. AI đề xuất nhóm vấn đề và bộ phận phụ trách; nhân viên xem nội dung gốc, chỉnh sửa và phê duyệt trước khi xử lý.
 
-Môi trường ảo (virtual environment) giúp cô lập các thư viện của dự án này, tránh xung đột với các phiên bản thư viện khác cài trên máy của bạn.
+Đây là bài tập học tập với dữ liệu giả lập, chưa tích hợp hệ thống vận hành của Vinhomes. Các số liệu về sản lượng, thời gian và lợi ích đều là **giả định thiết kế**, được tách khỏi kết quả kiểm thử thực tế.
 
-### 💻 Bước 1: Tạo môi trường ảo
-Mở terminal tại thư mục gốc của dự án (`VinUni_Day02-AI-Product-Lab`) và chạy lệnh tương ứng với hệ điều hành của bạn:
+**Đọc nhanh:** [Worksheet đủ 6 phase](01-worksheet.md) · [Báo cáo phân tích sâu](02-deep-dive-report.md) · [Nhật ký AI](03-ai-log.md) · [Code Vinhomes](starter-code/resident_prototype.py)
 
-*   **Windows (PowerShell hoặc CMD):**
-    ```powershell
-    python -m venv .venv
-    ```
-*   **macOS / Linux:**
-    ```bash
-    python3 -m venv .venv
-    ```
+## Bài toán và mục tiêu
 
-### 🔌 Bước 2: Kích hoạt (Activate) môi trường ảo
-Bạn phải kích hoạt môi trường ảo mỗi khi mở terminal mới trước khi chạy code.
+Phản ánh bằng văn bản có nhiều cách diễn đạt, có thể thiếu thông tin hoặc chứa nhiều vấn đề. Nhân viên phải đọc, xác định nhóm và chuyển tới bộ phận phù hợp; đây là hai bước được chọn để thử hỗ trợ bằng LLM.
 
-*   **Windows (PowerShell):**
-    ```powershell
-    .venv\Scripts\Activate.ps1
-    ```
-    *(Nếu gặp lỗi "Execution Policy", hãy chạy lệnh: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process` rồi kích hoạt lại).*
-*   **Windows (CMD):**
-    ```cmd
-    .venv\Scripts\activate.bat
-    ```
-*   **macOS / Linux:**
-    ```bash
-    source .venv/bin/activate
-    ```
-*   **Dấu hiệu kích hoạt thành công:** Ở đầu dòng lệnh của terminal xuất hiện ký hiệu `(.venv)`.
+| Nội dung | Hiện trạng giả định | Mục tiêu thử nghiệm |
+|---|---|---|
+| Đọc và phân loại, gồm người duyệt | 5 phút/yêu cầu | Trung bình <1 phút/yêu cầu |
+| Độ trễ tạo đề xuất hợp lệ | Chưa có baseline thật | ≥85% yêu cầu trong <10 giây |
+| Chất lượng phân loại | Chưa có tập nhãn chuẩn thật | Accuracy ≥90%, macro-F1 ≥0,85 |
+| Quyền quyết định | Nhân viên xử lý | Mọi đề xuất vẫn cần nhân viên duyệt |
 
-### 📥 Bước 3: Cài đặt thư viện cần thiết
-Chạy lệnh sau để cài đặt SDK của Gemini và các thư viện hỗ trợ:
-```bash
-pip install google-genai google-generativeai pytest
+Với giả định 100 phản ánh/ngày, giảm bước đọc/phân loại từ 5 xuống 1 phút có thể giải phóng khoảng **6,67 giờ nhân sự/ngày**. Đây là phép tính kịch bản, chưa phải lợi ích đo được hoặc chi phí lương thực sự tiết kiệm.
+
+## Quy trình hiện tại
+
+![Sơ đồ quy trình hiện tại: 4 bước, 2 handoff và điểm nghẽn đọc hiểu/phân loại](04-workflow-diagram.png)
+
+Tổng thời gian mô phỏng là **10 phút/yêu cầu**: cư dân gửi 2 phút, CSKH đọc 3 phút, phân loại 2 phút, ghi nhận và chuyển 3 phút. Phần cần tối ưu là bước đọc và phân loại, tổng 5 phút; không bao gồm thời gian sửa chữa hoặc đóng phản ánh.
+
+## Luồng giải pháp đề xuất
+
+```mermaid
+flowchart TD
+    A[Phản ánh cư dân] --> B[Rule: kiểm tra đầu vào và dấu hiệu khẩn]
+    B -->|Có dấu hiệu khẩn| E[Người trực kiểm tra ngay]
+    B -->|Thông thường| C[LLM: tóm tắt và phân loại]
+    C --> D{JSON, nhãn và bộ phận hợp lệ?}
+    D -->|Có| H[CSKH xem bản gốc, sửa và duyệt]
+    D -->|Không| F[Fallback: phân loại thủ công]
+    C -->|Lỗi API / timeout| F
+    F --> H
+    H --> G[Bàn giao sau phê duyệt và lưu vết]
+    E --> I[Người phụ trách quyết định xử lý sự cố]
+    classDef ai fill:#e9efff,stroke:#4969cc,color:#172f50
+    classDef human fill:#e7f5ef,stroke:#2b8a65,color:#173e31
+    class C ai
+    class E,H,I human
 ```
 
----
+**LLM Feature kết hợp Rule** là kiến trúc được chọn. LLM hỗ trợ hiểu ngôn ngữ; rule kiểm tra schema, danh mục nhãn, ánh xạ bộ phận và cờ phê duyệt. Bài toán chưa cần agent tự chủ.
 
-## 🔑 2. Thiết lập biến môi trường `GEMINI_API_KEY`
+Prototype hiện tại là CLI: gọi mô hình, kiểm tra đầu ra và in bản nháp. Hàng chờ, màn hình duyệt, cơ sở dữ liệu, phân quyền và audit log trong sơ đồ là phần thiết kế cho một hệ thống tích hợp tương lai. Luồng cảnh báo khẩn thực tế phải chạy trước lượt gọi LLM; CLI mới kiểm tra dấu hiệu khẩn khi bảo vệ đầu ra.
 
-Để code Python gọi được Gemini API, bạn cần khai báo khóa API của mình vào biến môi trường. **Lưu ý: Không được dán trực tiếp API Key vào code để tránh bị lộ khóa khi push lên GitHub.**
+## Đầu ra minh họa
 
-Hãy mở terminal đã kích hoạt `(.venv)` và chạy lệnh nạp khóa tương ứng:
+**Phản ánh:** “Vòi nước khu sinh hoạt chung bị rò, nhờ kiểm tra.”
 
-### 🪟 Trên Windows:
-*   **Nếu dùng PowerShell (Mặc định của VS Code / Cursor):**
-    ```powershell
-    $env:GEMINI_API_KEY="AIzaSyYourGeminiApiKeyHere"
-    ```
-*   **Nếu dùng Command Prompt (CMD):**
-    ```cmd
-    set GEMINI_API_KEY=AIzaSyYourGeminiApiKeyHere
-    ```
-
-### 🍎 Trên macOS / Linux:
-*   **Dùng Terminal:**
-    ```bash
-    export GEMINI_API_KEY="AIzaSyYourGeminiApiKeyHere"
-    ```
-
-### 🧪 Kiểm tra xem API Key đã nhận diện chưa:
-Chạy lệnh python nhanh này trong terminal để kiểm tra:
-```bash
-python -c "import os; print('API Key status: OK' if os.getenv('GEMINI_API_KEY') else 'API Key status: MISSING')"
+```json
+{
+  "category": "water",
+  "summary": "Vòi nước khu sinh hoạt chung bị rò rỉ.",
+  "priority": "normal",
+  "department": "technical",
+  "needs_review": true,
+  "draft_only": true,
+  "action": "review_only"
+}
 ```
 
----
+| Nhóm phản ánh | Bộ phận đề xuất trong bản mẫu |
+|---|---|
+| `electric`, `water` | `technical` |
+| `cleaning` | `cleaning` |
+| `security` | `security` |
+| `multiple`, `unknown` | `cskh` |
 
-## 👥 3. Quy định Làm bài và Nộp bài Nhóm (Group Workflow & Git Rules)
+AI không được tự gửi tin, đóng yêu cầu, thay đổi bản gốc, cam kết thời hạn/chi phí hoặc tiết lộ dữ liệu người khác. Đầu ra sai cấu trúc, sai bộ phận hoặc bỏ cờ duyệt được chuyển về bản nháp để nhân viên kiểm tra. Các script không có công cụ gửi tin, đóng ticket hoặc điều xe thật.
 
-Môn học này áp dụng mô hình cộng tác nhóm kết hợp chấm điểm cá nhân và chấm điểm nhóm thông qua Git Branching.
+## Nội dung bài làm
 
-### 📌 Quy định chung:
-1. **Tổ chức Nhóm & Repository:**
-   * Mỗi nhóm gồm **4 đến 6 thành viên**.
-   * **Trưởng nhóm** chịu trách nhiệm khởi tạo Repository chung của nhóm và **thêm (add) tất cả các thành viên vào danh sách Contributors** với quyền write.
-   * Tất cả thành viên (bao gồm cả Nhóm trưởng) đều phải thực hiện làm bài trên **Branch riêng (nhánh cá nhân)** của mình.
+| Thành phần | Nội dung | Tài liệu |
+|---|---|---|
+| Phase 1 — SCAN | 5 cơ hội vận hành theo 4 lenses | [Problem Scan](01-problem-scan.md) |
+| Phase 2 — QUICK-ASSESS | 3 problem cards, so sánh và chọn Vinhomes | [Problem Scan](01-problem-scan.md) |
+| Phase 3 — DEEP-DIVE | Quy trình, problem statement 6 trường, metrics, AI Fit | [Deep Dive Report](02-deep-dive-report.md) |
+| Phase 4 — PROTOTYPE | Prompt, structured output, rule và adversarial tests | [Vinhomes](starter-code/resident_prototype.py), [Xanh SM](starter-code/prompt_prototype.py) |
+| Phase 5 — EVALUATE | Readiness, chi phí giả định và điều kiện pilot | [Deep Dive Report](02-deep-dive-report.md#phase-5--evaluate) |
+| Phase 6 — REFLECTION | AI hỗ trợ gì, lỗi đã quan sát và cách kiểm soát | [AI Log](03-ai-log.md) |
+| Tổng hợp | Toàn bộ 6 phase trong một tài liệu | [Worksheet](01-worksheet.md) |
 
-2. **Bài tập Code (`.py`) — Chấm điểm CÁ NHÂN:**
-   * Mỗi thành viên tự hoàn thành file code `.py` cá nhân của mình.
-   * Push file `.py` lên **branch cá nhân**.
-   * 🛑 **LƯU Ý QUAN TRỌNG:** **KHÔNG merge file code (`.py`) vào branch `main`**. Điểm nhóm sẽ **KHÔNG** tính cho các file code. Phần code `.py` sẽ được hệ thống/giảng viên chấm điểm độc lập trên từng branch cá nhân.
+Bản Xanh SM hoàn thiện tình huống điều phối trong starter của đề bài. Bản Vinhomes bổ sung prototype khớp với đề tài báo cáo. Cả hai dùng chung bộ chạy thử, nhưng có prompt, schema và ranh giới nghiệp vụ riêng.
 
-3. **Bài tập Báo cáo/Tài liệu (`.md`) — Chấm điểm NHÓM:**
-   * Mỗi bạn tự hoàn thiện các file `.md` cá nhân trên branch riêng và push bài lên branch cá nhân đó.
-   * Sau khi **TẤT CẢ** các thành viên trong nhóm đã hoàn thành và push bài lên branch cá nhân, **Trưởng nhóm sẽ tổ chức họp/bàn luận với các thành viên** để review và chọn ra các ý tưởng hay nhất, file `.md` chất lượng nhất.
-   * Trưởng nhóm (hoặc đại diện nhóm) tổng hợp, chỉnh sửa và **merge các file `.md` xuất sắc nhất vào branch `main`**. Branch `main` là căn cứ duy nhất để tính điểm báo cáo chung cho toàn nhóm.
+## Kết quả kiểm chứng
 
-4. **Điền Form Nộp bài chính thức:**
-   * 🛑 **QUAN TRỌNG:** Khi điền form nộp bài, **CHỈ CẦN TRƯỞNG NHÓM điền Họ tên và link Repository của nhóm**. 
-   * Các thành viên khác **VUI LÒNG KHÔNG ĐIỀN THÊM FORM** để tránh trùng lặp thông tin nộp bài.
+Kết quả ghi nhận ngày **10/11/2026**, bằng các tình huống giả lập:
 
----
+| Kiểm tra | Kết quả | Bằng chứng |
+|---|---|---|
+| Unit tests: lỗi JSON, dữ liệu sai kiểu, cờ duyệt, ngưỡng pin, khẩn cấp và xử lý lỗi API | **25 tests đạt** | [test_boundaries.py](tests/test_boundaries.py) |
+| Vinhomes — gọi trực tiếp Gemini | **7/7 đầu ra cuối đạt assertion** | [vinhomes-live.json](evidence/vinhomes-live.json) |
+| Xanh SM — gọi trực tiếp Gemini | **6/6 đầu ra cuối đạt assertion** | [xanh-sm-live.json](evidence/xanh-sm-live.json) |
+| Fixture offline — không gọi mô hình | **7/7 Vinhomes, 6/6 Xanh SM** | [Vinhomes offline](evidence/vinhomes-offline.json), [Xanh SM offline](evidence/xanh-sm-offline.json) |
+| Autograder có sẵn trong repository | **10/10 cục bộ** | [autograder.py](autograder/autograder.py) |
 
-## 🔄 4. Hướng dẫn chi tiết Quy trình thao tác Git (Step-by-Step)
+Các file JSON giữ cả phản hồi gốc, vấn đề được rule phát hiện và đầu ra cuối. Ở ca Xanh SM có trạm không tương thích, mô hình chọn `human_review` nhưng vẫn giữ mã trạm; rule đã loại mã đó. Ở ca Vinhomes giả SYSTEM, tóm tắt vẫn nhắc lại yêu cầu tấn công dù không thực hiện nó. Chi tiết nằm trong [nhật ký AI](03-ai-log.md).
 
-### 👑 Bước 1: Dành cho Trưởng nhóm (Tạo Repo & Thêm Thành viên)
-1. Tạo repo mới trên GitHub (hoặc accept link GitHub Classroom).
-2. Vào tab **Settings** > **Collaborators** (hoặc **Manage access**) > Click **Add people**.
-3. Nhập username GitHub hoặc email của 4-6 thành viên để mời họ làm Contributors.
-4. Gửi link repo cho các thành viên clone về máy.
+Đạt kiểm tra đầu ra cuối không đồng nghĩa mọi phản hồi gốc đều đúng. Bộ tình huống nhỏ chưa xác nhận accuracy trên dữ liệu đại diện, SLA hoặc ROI. Điểm autograder cũng không thay thế đánh giá nội dung của giảng viên.
 
-### 👤 Bước 2: Dành cho TẤT CẢ Thành viên (Tạo Branch cá nhân)
-Sau khi clone repo về máy, mở terminal tại thư mục dự án và tạo nhánh riêng theo tên/mã sinh viên của bạn:
+## Cài đặt và chạy
 
-```bash
-# Clone repo chung về máy
-git clone <URL_REPOSITORY_CUA_NHOM>
-cd VinUni_Codelab_Day02
+Môi trường đã kiểm tra: **Python 3.11**, SDK `google-genai`, `python-dotenv` và `pytest`.
 
-# Tạo và chuyển sang branch cá nhân (Ví dụ: nguyenvana hoặc dev-student1)
-git checkout -b <ten-cua-ban>
+```powershell
+git clone https://github.com/xrkhanhlinh/miniproject-day2.git
+cd miniproject-day2
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 ```
 
-### 💻 Bước 3: Làm bài & Push lên Branch cá nhân
-Thực hiện chỉnh sửa code `.py` và hoàn thiện các file `.md` trên branch cá nhân. Sau đó thực hiện commit và push:
+Trên macOS/Linux, dùng `python3 -m venv .venv` và `source .venv/bin/activate`. Hướng dẫn môi trường đầy đủ ở [Student Guide gốc](docs/student-guide.md).
 
-```bash
-# Kiểm tra các file đã chỉnh sửa
-git status
+### Chạy offline
 
-# Thêm tất cả file đã làm vào staging
-git add .
+Không cần API key. Chế độ này dùng phản hồi giả lập cố ý có lỗi để kiểm tra code bảo vệ; đây cũng là chế độ mặc định khi không truyền tùy chọn.
 
-# Commit bài làm cá nhân
-git commit -m "Feat: Complete individual assignment by <Ten-Cua-Ban>"
-
-# Push bài làm lên branch cá nhân (KHÔNG push trực tiếp lên main)
-git push origin <ten-cua-ban>
+```powershell
+python starter-code/resident_prototype.py --offline
+python starter-code/prompt_prototype.py --offline
+python -m pytest -q
+python autograder/autograder.py
 ```
 
-### 🤝 Bước 4: Thảo luận nhóm & Merge file `.md` vào `main` (Dành cho Trưởng nhóm)
-Sau khi tất cả thành viên đã push branch cá nhân lên GitHub:
+### Chạy trực tiếp Gemini
 
-1. **Thảo luận:** Trưởng nhóm và các thành viên họp review các branch, thảo luận chọn ra bài viết `.md` (Problem Scan, Deep Dive Report, AI Log) xuất sắc nhất.
-2. **Merge file `.md` vào `main`:**
-   ```bash
-   # Trưởng nhóm chuyển về branch main và cập nhật mới nhất
-   git checkout main
-   git pull origin main
+Đặt `GEMINI_API_KEY` trong môi trường hoặc file `.env` tại thư mục gốc. `.env` được Git bỏ qua; không đưa khóa vào source code.
 
-   # Lấy nội dung các file .md được chọn từ branch thành viên (Ví dụ từ branch nguyenvana)
-   git checkout nguyenvana -- 01-problem-scan.md 02-deep-dive-report.md 03-ai-log.md 04-workflow-diagram.png
+```dotenv
+GEMINI_API_KEY=your_api_key_here
+```
 
-   # Commit nội dung .md đã chắt lọc cho nhóm
-   git commit -m "Chore: Select and merge best markdown reports into main"
+```powershell
+python starter-code/resident_prototype.py --live --output evidence/vinhomes-live.json
+python starter-code/prompt_prototype.py --live --output evidence/xanh-sm-live.json
+```
 
-   # Push main lên GitHub để nộp bài nhóm
-   git push origin main
-   ```
-3. 🛑 **Nhắc lại:** **KHÔNG** thực hiện checkout hay merge file `.py` vào branch `main`. File `.py` chỉ nằm tại branch riêng của từng thành viên.
+Các lệnh trên ghi đè file bằng chứng tương ứng bằng kết quả của lượt chạy mới. Mô hình mặc định là `gemini-2.5-flash` theo đề bài. API lỗi hoặc hết quota được ghi là lỗi, trả mã thoát khác 0, giữ bản nháp fallback và không tính là một case mô hình thành công.
 
-### 📝 Bước 5: Điền Form Nộp bài (Dành riêng cho Trưởng nhóm)
-* **Duy nhất Trưởng nhóm** mở Form nộp bài của môn học, điền **Họ và tên Trưởng nhóm** cùng **Link Repository GitHub** của nhóm.
-* Các thành viên còn lại **tuyệt đối không điền form** này nữa.
+## Đánh giá mức sẵn sàng
 
----
+**Prototype học tập đã hoàn thành. Quyết định cho pilot vận hành: NOT YET.**
 
-## 📝 5. Hướng dẫn chi tiết cách hoàn thiện các file nộp bài
+Trước pilot cần xác minh baseline, có dữ liệu thật được phép sử dụng và gán nhãn, so sánh Rule với LLM trên tập giữ riêng, đo cả thời gian nhân viên review và xác nhận quy trình với người vận hành. Kế hoạch chi tiết, công thức chi phí và điều kiện chuyển sang GO nằm trong [báo cáo phân tích sâu](02-deep-dive-report.md).
 
-### 📄 1. File `01-problem-scan.md` (Ý tưởng cá nhân & Nhóm)
-File này thể hiện tư duy tìm kiếm bài toán thực tế.
-*   **Cách làm:** Copy và hoàn thiện nội dung của **Phase 1 (SCAN)** và **Phase 2 (QUICK-ASSESS)** từ file `01-worksheet.md`.
-*   **Yêu cầu nội dung:**
-    *   **Bảng quét cơ hội (SCAN):** Điền tối thiểu 5 bài toán thực tế thuộc các công ty thành viên Vingroup.
-    *   **3 Quick Problem Cards:** Điền đầy đủ thông tin cho 3 bài toán tiềm năng nhất (Actor, Quy trình hiện tại, Bottleneck, AI Solution, Metric...).
+## Cấu trúc repository
 
-### 📄 2. File `02-deep-dive-report.md` (Báo cáo Phân tích sâu)
-Báo cáo phân tích sâu dự án AI mà nhóm/cá nhân lựa chọn.
-*   **Cách làm:** Copy và hoàn thiện nội dung của **Phase 3 (DEEP-DIVE)** và **Phase 5 (EVALUATE)** từ file `01-worksheet.md`.
-*   **Yêu cầu nội dung:**
-    *   **Problem Statement (6-field):** Điền đầy đủ 6 trường thông tin cho bài toán đã chọn.
-    *   **Future-State Flow & AI Fit:** Mô tả quy trình tương lai có tích hợp AI (Rule, LLM, Agentic Loop), cơ chế Human-in-the-loop và Fallback.
-    *   **Evaluate:** Đánh giá độ sẵn sàng qua bảng Checklist và đưa ra quyết định GO / NOT YET / NO-GO.
+```text
+miniproject-day2/
+├── README.md                       Trang giới thiệu và hướng dẫn chạy
+├── 01-worksheet.md                 Bài làm tổng hợp 6 phase
+├── 01-problem-scan.md              SCAN và 3 problem cards
+├── 02-deep-dive-report.md           Phân tích sâu và đánh giá
+├── 03-ai-log.md                     Nhật ký AI và phản ánh
+├── 04-workflow-diagram.png          Ảnh quy trình hiện tại
+├── starter-code/                   Hai prototype và harness dùng chung
+├── tests/                          Kiểm thử ranh giới
+├── evidence/                       Phản hồi gốc và kết quả kiểm tra
+├── assets/                         Hình tổng quan và nguồn dựng sơ đồ
+├── docs/student-guide.md           Hướng dẫn gốc của đề bài
+├── autograder/                     Bộ chấm có sẵn
+└── requirements.txt                Thư viện cần cài
+```
 
-### 🖼️ 3. File `04-workflow-diagram.png` (hoặc `.pdf`)
-Sơ đồ trực quan hóa quy trình vận hành hiện tại.
-*   **Cách làm:** Vẽ sơ đồ quy trình hiện tại (Current-State Workflow) lên giấy/bảng trắng hoặc công cụ vẽ trực tuyến.
-*   **Yêu cầu:** Thể hiện rõ các bước tuần tự, điểm chuyển giao (🔄 **Handoff**), thời gian xử lý và điểm nghẽn cổ chai (🔴 **Bottleneck**).
-
-### 📄 4. File `03-ai-log.md` (Nhật ký tương tác AI)
-*   **Cách làm:** Viết bài tự luận phản ánh quá trình sử dụng AI (ChatGPT, Gemini, Claude...) làm trợ lý đồng hành.
-*   **Yêu cầu:** Nêu rõ AI giúp gì, AI trả lời sai/hallucination ở đâu, và bạn đã sửa prompt/ranh giới ra sao để đạt kết quả chuẩn.
-
-### 🐍 5. File Code `.py` (Bài tập Code Cá nhân)
-*   **Vị trí:** Lưu tại file `.py` cá nhân của bạn (ví dụ: `starter-code/prompt_prototype.py` hoặc file `.py` được yêu cầu).
-*   **Lưu ý:** Chỉ nộp trên branch cá nhân (`git push origin <ten-cua-ban>`), không merge vào `main`.
-
----
-
-## 📊 6. Tóm Tắt Quy Trình Chấm Điểm & Nộp Bài (Summary Rubric)
-
-| Loại Bài Tập / Thao Tác | Định Dạng File / Hành Động | Vị Trí Nộp | Người Thực Hiện | Tiêu Chí Tính Điểm |
-| :--- | :--- | :--- | :--- | :--- |
-| **Code Python** | `.py` | Branch Cá nhân (`<ten>`) | Từng thành viên | **Điểm CÁ NHÂN** (chấm trên branch riêng) |
-| **Báo cáo / Document** | `.md`, `.png` | Branch `main` (Sau khi chọn lọc & merge) | Cả nhóm / Trưởng nhóm đại diện merge | **Điểm NHÓM** (chấm trên branch `main`) |
-| **Form Nộp Bài** | Form trực tuyến | Link Google Form / LMS | **Chỉ DUY NHẤT Trưởng nhóm điền** | Ghi nhận/tổng hợp bài nộp của nhóm |
+Bản tổng hợp gồm tài liệu, ảnh, code và bằng chứng được lưu trên `main` theo yêu cầu chủ repository. Nhánh [`lab02/hoan-thien-bai`](https://github.com/xrkhanhlinh/miniproject-day2/tree/lab02/hoan-thien-bai) giữ bản bài làm cá nhân đã nộp lên Git. Quy định phân nhánh của đề gốc được lưu trong [Student Guide](docs/student-guide.md).

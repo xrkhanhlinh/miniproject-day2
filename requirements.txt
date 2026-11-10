@@ -1,5 +1,5 @@
 # Environment Dependencies
 # List all required python packages here.
-google-genai
-google-generativeai
-pytest
+google-genai>=1.50,<3
+python-dotenv>=1,<2
+pytest>=8,<10

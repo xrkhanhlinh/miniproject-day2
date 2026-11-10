@@ -2,6 +2,43 @@
 
 Tài liệu này hướng dẫn chi tiết cách thiết lập môi trường lập trình Python, cấu hình API Key, quy trình phân nhánh Git làm việc nhóm và chuẩn bị sản phẩm nộp bài cho **Lab 02: AI Product Scoping (Vin Smart Future)**.
 
+## Bài làm hoàn thiện — 10/11/2026
+
+**Đề tài báo cáo:** Trợ lý phân loại phản ánh cư dân Vinhomes, có nhân viên duyệt mọi đề xuất. Các số liệu vận hành được ghi rõ là giả định; quyết định **NOT YET cho pilot vận hành** vì chưa có dữ liệu thật và xác nhận của stakeholders.
+
+| Nội dung | File |
+|---|---|
+| Worksheet đủ 6 phase | [01-worksheet.md](01-worksheet.md) |
+| 5 cơ hội, 3 problem cards và lựa chọn đề tài | [01-problem-scan.md](01-problem-scan.md) |
+| Phân tích sâu, metrics, luồng tương lai và đánh giá | [02-deep-dive-report.md](02-deep-dive-report.md) |
+| Nhật ký AI, lỗi thực tế và phản ánh | [03-ai-log.md](03-ai-log.md) |
+| Sơ đồ hiện trạng: thời gian, handoff, bottleneck | [04-workflow-diagram.png](04-workflow-diagram.png) |
+| Code cá nhân đúng tình huống Xanh SM của starter | [prompt_prototype.py](starter-code/prompt_prototype.py) |
+| Prototype khớp đề tài Vinhomes | [resident_prototype.py](starter-code/resident_prototype.py) |
+| Phản hồi Gemini gốc và đầu ra đã kiểm tra | [Vinhomes live](evidence/vinhomes-live.json), [Xanh SM live](evidence/xanh-sm-live.json) |
+
+Sau khi kích hoạt môi trường và cài `requirements.txt`, chạy từ thư mục gốc:
+
+```powershell
+# Kiểm tra code bảo vệ bằng fixture, không gọi API (cũng là chế độ mặc định)
+python starter-code/prompt_prototype.py --offline --output evidence/xanh-sm-offline.json
+python starter-code/resident_prototype.py --offline --output evidence/vinhomes-offline.json
+
+# Kiểm tra trực tiếp Gemini; tự đọc khóa trong môi trường hoặc .env ở thư mục gốc
+python starter-code/resident_prototype.py --live --output evidence/vinhomes-live.json
+python starter-code/prompt_prototype.py --live --output evidence/xanh-sm-live.json
+
+# Kiểm tra hồi quy và bộ chấm có sẵn
+python -m pytest -q
+python autograder/autograder.py
+```
+
+Mô hình mặc định là `gemini-2.5-flash` theo đề bài; có thể đặt biến `GEMINI_MODEL` khi cần một mô hình khác có hỗ trợ cấu hình tương ứng. Hai script **không gửi tin, đóng ticket hoặc điều xe thật**. Chế độ offline dùng dữ liệu/đầu ra giả lập có gắn nhãn, không được xem là kiểm thử chất lượng Gemini. HTTP lỗi trong chế độ live được ghi là lỗi, trả mã thoát khác 0 và không tính là case mô hình vượt qua kiểm tra.
+
+Kết quả trong phiên hoàn thiện: Vinhomes live 7/7 và Xanh SM live 6/6 đạt kiểm tra đầu ra cuối của bộ tình huống nhỏ. Autograder có sẵn đạt 10/10; bộ chấm này chủ yếu kiểm tra file, cấu trúc code và các assertion offline, không phải bảo đảm điểm đánh giá nội dung của giảng viên. Chi tiết lỗi phản hồi gốc và giới hạn kiểm thử được ghi trong AI log.
+
+Nhánh làm bài: `lab02/hoan-thien-bai`. Khi nộp, code `.py` chỉ ở nhánh cá nhân; trưởng nhóm chọn báo cáo và ảnh để đưa vào `main` theo quy định bên dưới. Việc nộp form do trưởng nhóm thực hiện.
+
 ---
 
 ## 🛠️ 1. Hướng dẫn thiết lập Môi trường ảo (`.venv`)
@@ -41,7 +78,7 @@ Bạn phải kích hoạt môi trường ảo mỗi khi mở terminal mới trư
 ### 📥 Bước 3: Cài đặt thư viện cần thiết
 Chạy lệnh sau để cài đặt SDK của Gemini và các thư viện hỗ trợ:
 ```bash
-pip install google-genai google-generativeai pytest
+pip install -r requirements.txt
 ```
 
 ---
@@ -97,7 +134,7 @@ Môn học này áp dụng mô hình cộng tác nhóm kết hợp chấm điể
    * Trưởng nhóm (hoặc đại diện nhóm) tổng hợp, chỉnh sửa và **merge các file `.md` xuất sắc nhất vào branch `main`**. Branch `main` là căn cứ duy nhất để tính điểm báo cáo chung cho toàn nhóm.
 
 4. **Điền Form Nộp bài chính thức:**
-   * 🛑 **QUAN TRỌNG:** Khi điền form nộp bài, **CHỈ CẦN TRƯỞNG NHÓM điền Họ tên và link Repository của nhóm**. 
+   * 🛑 **QUAN TRỌNG:** Khi điền form nộp bài, **CHỈ CẦN TRƯỞNG NHÓM điền Họ tên và link Repository của nhóm**.
    * Các thành viên khác **VUI LÒNG KHÔNG ĐIỀN THÊM FORM** để tránh trùng lặp thông tin nộp bài.
 
 ---

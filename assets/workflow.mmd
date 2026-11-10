@@ -1,0 +1,7 @@
+flowchart LR
+    A["1. Cư dân gửi phản ánh<br/>2 phút"] -->|"Handoff 1: Cư dân → CSKH"| B["2. CSKH đọc và làm rõ<br/>3 phút • BOTTLENECK"]
+    B --> C["3. CSKH phân loại<br/>2 phút • BOTTLENECK"]
+    C --> D["4. CSKH ghi nhận và chuyển<br/>3 phút"]
+    D -->|"Handoff 2"| E["Kỹ thuật / Vệ sinh / An ninh nhận yêu cầu"]
+    classDef bottleneck fill:#fff0ef,stroke:#c53b3b,stroke-width:3px
+    class B,C bottleneck
